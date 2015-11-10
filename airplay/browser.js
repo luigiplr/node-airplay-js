@@ -11,7 +11,7 @@ var events = require( 'events' );
 //var mdns = require( 'mdns' );
 
 var mdns = require( 'mdns-js' );
-
+var TIMEOUT = 10000;
 var Device = require( './device' ).Device;
 
 var Browser = function( options ) {
@@ -31,46 +31,51 @@ Browser.prototype.init = function ( options ) {
     var nextDeviceId = 0;
 
     this.devices = {};
-    this.addresses = []
+    this.getDeviceTxtValue = function(device, key, fallback) {
+      var value = fallback !== undefined ? fallback : '';
+      for (var i = 0; i < device.txt.length; i++) {
+        var keyValue = device.txt[i].split('=');
+        if (keyValue[0] === key) {
+          value = keyValue[1];
+        }
+      }
+      return value;
+    }
+    //var mdnsBrowser = new mdns.Mdns(mdns.tcp('airport'));
+    var browser = new mdns.createBrowser(mdns.tcp('airplay'));
+    //var legacyMdnsBrowser = new mdns.Mdns(mdns.tcp('airplay'));
 
-    var browser = mdns.createBrowser(mdns.tcp('airplay'));
+    var mdnsOnUpdate = function(data) {
+        if(data.port && data.port == 7000){
+            var info = data.addresses
+            var name = data.fullname.split('.')[0]
 
+                device = new Device( nextDeviceId++, info , name );
+                device.on( 'ready', function( d ) {
+                    self.emit( 'deviceOn', d );
+                });
+                device.on( 'close', function( d ) {
+                    delete self.devices[ d.id ];
+                    self.emit( 'deviceOff', d );
+                });
+
+                self.devices[ device.id ] = device;
+
+        }
+    };
     browser.on('ready', function () {
-        browser.discover();
+            browser.discover();
     });
+    browser.on('update', mdnsOnUpdate);
 
-    browser.on('serviceUp', function(data) {
-        if(data.port && data.port == 7000 && self.addresses.indexOf(data.address) < 0){
-            var info = [data.address]
-            var name = data.name
-            self.addresses.push(data.address)
-            
-            device = new Device( nextDeviceId++, info , name );
-            device.on( 'ready', function( d ) {
-                self.emit( 'deviceOn', d );
-            });
-            device.on( 'close', function( d ) {
-                delete self.devices[ d.id ];
-                self.emit( 'deviceOff', d );
-            });
+    setTimeout(function onTimeout() {
+      browser.stop();
+    }, TIMEOUT);
 
-            self.devices[ device.id ] = device;
-        }
-    });
-
-    browser.on('serviceDown', function(info) {
-      if ( !self.isValid( info ) ) {
-            return;
-        }
-
-        var device = self.getDevice( info );
-        if ( device ) {
-            device.close();
-        }
-    });
 };
 
 Browser.prototype.start = function () {
+    //this.browser.start();
     this.emit( 'start' );
     return this;
 };
@@ -88,25 +93,27 @@ Browser.prototype.isValid = function ( info ) {
 };
 
 Browser.prototype.getDevice = function ( info ) {
-    for ( var deviceId in this.devices ) {
-        var device = this.devices[ deviceId ];
+    for ( var DeviceId in this.devices ) {
+        var device = this.devices[ DeviceId ];
         if ( device.match( info ) ) {
             return device;
         }
     }
 };
 
-Browser.prototype.getDeviceById = function ( deviceId, skipCheck ) {
-    var device = this.devices[ deviceId ];
+Browser.prototype.getDeviceById = function ( DeviceId, skipCheck ) {
+    var device = this.devices[ DeviceId ];
     if ( device && ( skipCheck || device.isReady() ) ) {
         return device;
     }
 };
 
+
+
 Browser.prototype.getDevices = function ( skipCheck ) {
     var devices = [];
-    for ( var deviceId in this.devices ) {
-        var device = this.devices[ deviceId ];
+    for ( var DeviceId in this.devices ) {
+        var device = this.devices[ DeviceId ];
         if ( skipCheck || device.isReady() ) {
             devices.push( device );
         }

@@ -11,6 +11,8 @@ var util = require( 'util' );
 
 var Client = require( './client' ).Client;
 
+
+
 function Device ( id, info, name, callback ) {
     var self = this;
 
@@ -35,32 +37,6 @@ function Device ( id, info, name, callback ) {
         }
     );
     this.client.on( 'ping', function () { self.emit( 'ping' ); });
-
-    self.hls = require( '../airplay' ).createHLS();
-    self.hls.on( 'start', function () {
-        console.info( '[HLS] start: %s', self.hls.getURI() );
-    });
-    self.hls.on( 'stop', function () {
-        console.info( '[HLS] stop: %s', self.hls.getURI() );
-    });
-    self.hls.on( 'request', function ( req ) {
-        // var uri = url.parse( req.url, true );
-        console.info( '[HLS] request: %s', req.url );
-    });
-    self.hls.on( 'process', function ( d ) {
-        console.info( '[HLS] segment process: %s, %s, %s', d.index, d.file, d.out.toString() );
-    });
-    self.hls.on( 'segment', function ( d ) {
-        console.info( '[HLS] segment created: %s, %s, %s', d.index, d.file, d.out );
-    });
-    self.hls.on( 'open', function ( d ) {
-        console.info( '[HLS] opend: %s, %s', d.file, util.inspect( d.info ) );
-    });
-    self.hls.on( 'error', function ( err ) {
-        console.info( '[HLS] segment error: ', util.inspect( err ) );
-    });
-
-
 }
 
 util.inherits( Device, events.EventEmitter );
@@ -110,7 +86,7 @@ Device.prototype.getInfo = function() {
         id: this.id,
         name: info.name,
         fullName: info.fullname,
-        deviceId: txtRecord.deviceid || serverInfo.deviceId,
+        deviceId: txtRecord.deviceid || serverInfo.deviceId || serverInfo.macAddress,
         features: serverInfo.features || txtRecord.features,
         model: serverInfo.model,
         interfaceName: info.networkInterface,
@@ -130,40 +106,11 @@ Device.prototype.getInfo = function() {
     };
 };
 
-Device.prototype.play = function(media, position, callback){
-    var self = this
-
-    //#TODO: Check if has ffmpeg and if not, go directly to simpleplay
-    //
-    console.log(typeof(media))
-    self.hls.start( 7001 + this.id );
-
-    console.log("going to play: "+media)
-    self.hls.open( media , function ( info ) {
-        device.simpleplay( self.hls.getURI(), '0.000000', function ( res ) {
-            console.info( '->> ', res );
-            setTimeout(function(){
-                device.status( function ( info ) {
-                    console.info( '->> ', info ? info : 'no info >(' );
-                    if ( info ) {
-                        console.log(info)
-                    }
-                });
-            }, 4000);
-        });
-    });
-    self.hls.on('NoFFMPEG', function(){
-        self.simpleplay(media, position, callback);
-        self.emit('NoFFMPEG')
-    })
-
-};
-
 
 // extend airplay apis: 'localName[:clientName]'
 [
     'status:playbackInfo', 'authorize',
-    'simpleplay', 'stop', 'scrub', 'reverse', 'rate', 'volume',
+    'play', 'stop', 'scrub', 'reverse', 'rate', 'volume',
     'photo'
 ].forEach(function ( api ) {
     api = api.split( ':' );
@@ -173,4 +120,3 @@ Device.prototype.play = function(media, position, callback){
         this.client[ api[1] ].apply( this.client, arguments );
     };
 });
-

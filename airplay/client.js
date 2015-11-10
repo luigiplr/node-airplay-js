@@ -49,7 +49,13 @@ var Client = function ( options, callback ) {
             console.info( e.message );
         }
     });
+    this.socket.on( 'end', function() {
+    });
+
+
 };
+
+
 
 util.inherits( Client, events.EventEmitter );
 exports.Client = Client;
@@ -186,6 +192,7 @@ Client.prototype.serverInfo = function ( callback ) {
             info = {
                 deviceId: obj.deviceid,
                 features: obj.features,
+                macAddress: obj.macAddress,
                 model: obj.model,
                 osVersion: obj.osBuildVersion,
                 protocolVersion: obj.protovers,
@@ -237,7 +244,7 @@ Client.prototype.playbackInfo = function ( callback ) {
 };
 
 // position: 0 ~ 1
-Client.prototype.simpleplay = function ( src, position, callback ) {
+Client.prototype.play = function ( src, position, callback ) {
     var body = [
         'Content-Location: ' + src,
         'Start-Position: ' + (position || 0)
