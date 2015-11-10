@@ -8,6 +8,8 @@
   },
   "contributors": [],
   "dependencies": {
+    "iconv-lite": "^0.4.13",
+    "jschardet": "^1.4.1",
     "mdns-js": "simphax/node-mdns-js",
     "plist-with-patches": "0.5.1"
   },
